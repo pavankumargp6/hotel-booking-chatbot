@@ -27,6 +27,7 @@ from lex import (
     get_slot_value,
 )
 from pricing import calculate_estimate
+from storage import save_booking
 from validation import (
     REQUIRED_SLOTS,
     SLOT_CHECK_IN_DATE,
@@ -96,7 +97,11 @@ def _format_money(amount):
     return f"{amount:,.2f}"
 
 
-def _build_confirmation(intent, estimate):
+def _session_id_from_event(event):
+    return (event.get("sessionState") or {}).get("sessionId") or "unknown"
+
+
+def _build_confirmation(intent, estimate, booking_id=None):
     location = get_slot_value(intent, SLOT_LOCATION)
     check_in = get_slot_value(intent, SLOT_CHECK_IN_DATE)
     nights = get_slot_value(intent, SLOT_NIGHTS)
@@ -112,8 +117,8 @@ def _build_confirmation(intent, estimate):
         f"Price per night: {currency} "
         f"{_format_money(estimate.price_per_night)}\n"
         f"Estimated total: {currency} {_format_money(estimate.total)}\n"
-        "\n"
-        "This is a simulated booking estimate. "
+        + (f"\nReference: {booking_id}" if booking_id else "")
+        + "\n\nThis is a simulated booking estimate. "
         "No real hotel reservation has been made."
     )
 
@@ -160,6 +165,20 @@ def lambda_handler(event, context):
             nights = int(get_slot_value(intent, SLOT_NIGHTS))
             estimate = calculate_estimate(pricing, room_key, nights)
 
+            try:
+                booking_id = save_booking(
+                    estimate,
+                    session_id=_session_id_from_event(event),
+                    location=get_slot_value(intent, SLOT_LOCATION),
+                    check_in_date=get_slot_value(intent, SLOT_CHECK_IN_DATE),
+                )
+            except Exception:
+                logger.exception("Failed to persist booking")
+                return close_failed(
+                    intent_name, slots,
+                    "Sorry, I could not save your booking. Please try again.",
+                )
+
             logger.info(
                 "Fulfilled BookHotel: room=%s nights=%s location_length=%s",
                 estimate.room_key,
@@ -168,7 +187,10 @@ def lambda_handler(event, context):
             )
 
             return close_fulfilled(
-                intent_name, slots, _build_confirmation(intent, estimate)
+                intent_name,
+                slots,
+                _build_confirmation(intent, estimate, booking_id=booking_id),
+
             )
 
         logger.warning("Unknown invocationSource: %s", invocation_source)

@@ -239,3 +239,56 @@ def test_fixture_dialog_invalid_date_elicits_checkin():
         == "CheckInDate"
     )
     assert "past" in response["messages"][0]["content"].lower()
+
+
+# ---- Persistence integration ----------------------------------------------
+
+
+def test_fulfillment_includes_booking_reference(monkeypatch):
+    import lambda_handler as lh
+
+    monkeypatch.setattr(
+        lh, "save_booking",
+        lambda *a, **kw: "bk_deadbeefdeadbeefdeadbeefdeadbeef",
+    )
+    response = lh.lambda_handler(
+        _event("FulfillmentCodeHook", ALL_VALID_SLOTS), None
+    )
+    assert response["sessionState"]["intent"]["state"] == "Fulfilled"
+    content = response["messages"][0]["content"]
+    assert "Reference: bk_deadbeefdeadbeefdeadbeefdeadbeef" in content
+
+
+def test_fulfillment_fails_when_persistence_raises(monkeypatch):
+    import lambda_handler as lh
+
+    def boom(*a, **kw):
+        raise RuntimeError("dynamodb unavailable")
+
+    monkeypatch.setattr(lh, "save_booking", boom)
+    response = lh.lambda_handler(
+        _event("FulfillmentCodeHook", ALL_VALID_SLOTS), None
+    )
+    assert response["sessionState"]["intent"]["state"] == "Failed"
+    content = response["messages"][0]["content"].lower()
+    assert "could not save" in content
+
+
+def test_fulfillment_passes_expected_save_args(monkeypatch):
+    import lambda_handler as lh
+
+    seen = {}
+
+    def capture(estimate, **kwargs):
+        seen["estimate"] = estimate
+        seen.update(kwargs)
+        return "bk_00000000000000000000000000000000"
+
+    monkeypatch.setattr(lh, "save_booking", capture)
+    lh.lambda_handler(
+        _event("FulfillmentCodeHook", ALL_VALID_SLOTS), None
+    )
+    assert seen["location"] == "Bangalore"
+    assert seen["check_in_date"] == "2099-04-01"
+    assert seen["estimate"].nights == 2
+    assert seen["estimate"].room_key == "deluxe"
