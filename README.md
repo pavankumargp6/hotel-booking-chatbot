@@ -24,7 +24,7 @@ returns a formatted summary to the user.
 | Application-level slot validation | Implemented |
 | Unit + integration-style tests | Implemented (113 tests) |
 | SAM template for deployment | Implemented (`template.yaml`) |
-| GitHub Actions CI | Planned |
+| GitHub Actions CI | Implemented (`.github/workflows/ci.yml`) |
 | Real hotel reservation / inventory | Not implemented — simulated only |
 | Payment processing | Not implemented |
 | Database persistence | Not implemented |
