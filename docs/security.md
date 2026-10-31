@@ -34,3 +34,16 @@ from Lambda environment variables. No API keys, no passwords, no
 account IDs in source or configuration. Future payment / CRM
 integrations should read secrets via AWS Secrets Manager or SSM
 Parameter Store, never via environment variables or the repo.
+
+## Dependency audit scope
+
+CI runs `pip-audit -r requirements-dev.txt`, which covers every pinned
+third-party package the project explicitly depends on.
+
+Runtime dependencies: the deployed Lambda uses the AWS-managed Python
+3.12 runtime, which supplies `boto3` and `botocore`. Those are patched
+by AWS as part of the runtime; this project does not pin or audit them.
+
+Policy: if this project ever adds a third-party runtime dependency, it
+belongs in `requirements.txt` **and** must be added to the audit command
+in `.github/workflows/ci.yml`.

@@ -28,7 +28,6 @@ returns a formatted summary to the user.
 | GitHub Actions CI | Implemented (`.github/workflows/ci.yml`) |
 | Real hotel reservation / inventory | Not implemented — simulated only |
 | Payment processing | Not implemented |
-| Database persistence | Not implemented |
 | Web widget | Not implemented |
 
 ---
@@ -116,7 +115,7 @@ See `docs/data-model.md` for the full schema and cost analysis.
   `0.01`. No floats anywhere.
 - **Config externalized:** all prices in `PRICING_CONFIG`, no magic
   numbers in code.
-- **No AWS SDK:** handler uses only the Python standard library.
+- **Minimal AWS SDK:** the handler imports `boto3` only for a scoped `dynamodb:PutItem`. No other AWS API calls.
 - **Failure isolation:** unhandled exceptions become a Lex `Close`
   with `Failed` state and a generic user message; the traceback goes
   to CloudWatch. Internal detail never reaches the user.
@@ -125,7 +124,7 @@ See `docs/data-model.md` for the full schema and cost analysis.
 
 ## Known limitations
 
-- No persistence — sessions are held only by Lex.
+- Persistence is limited to a single DynamoDB write per fulfillment (audit record, `status=SIMULATED`); no read/update/cancel flows yet.
 - No availability check — any room/date returns an estimate.
 - No payment.
 - `en_US` only.
@@ -172,7 +171,7 @@ Manager or SSM Parameter Store — never in `PRICING_CONFIG`.
 
 ## Local testing
 
-Run the full suite (113 tests) and linter:
+Run the full suite (122 tests) and linter:
 
     python3 -m venv .venv
     source .venv/bin/activate
