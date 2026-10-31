@@ -1,82 +1,114 @@
-# Deployment verification runbook
+# AWS Deployment Verification Runbook
 
-The exact sequence to move this project from "locally verified" to
-"verified in AWS". Each step produces evidence for the README's
-`### Verification status` section.
+Use this runbook to move the project from **locally verified** to **verified in AWS**. Do not describe the project as deployed until all verification steps have succeeded.
 
 ## Prerequisites
 
-- AWS CLI installed: `pip install awscli` (or `apt install awscli`)
-- `aws sts get-caller-identity` succeeds (credentials configured)
-- A Lex V2 bot with a `BookHotel` intent exists in that account
-- AWS SAM CLI installed: `sam --version` prints `1.x`
+- AWS CLI configured with credentials for the target account.
+- `aws sts get-caller-identity` succeeds.
+- AWS SAM CLI installed.
+- An Amazon Lex V2 bot with a `BookHotel` intent and an alias.
+- Permission to create Lambda, IAM, DynamoDB, and Lambda permissions through CloudFormation.
 
-## Step 1 — Deploy
+## 1. Configure and deploy
+
+From the repository root:
 
 ```bash
 cp samconfig.toml.example samconfig.toml
-# Edit samconfig.toml:
-#   region = your region
-#   parameter_overrides = LexBotAliasArn="arn:aws:lex:...:bot-alias/<botId>/<aliasId>"
+```
+
+Edit `samconfig.toml` and set the deployment region and the `LexBotAliasArn` parameter override for your existing Lex V2 bot alias.
+
+Then run:
+
+```bash
 sam validate --lint
 sam build
 sam deploy --guided
-cat > docs/deployment-verification.md <<'EOF'
-# Deployment verification runbook
+```
 
-Prerequisites: `pip install awscli`, working `aws sts get-caller-identity`,
-an existing Lex V2 bot with `BookHotel` intent, and SAM CLI 1.x.
+Save the successful deployment output. The stack should create the fulfillment Lambda, DynamoDB table, and permission allowing the Lex bot alias to invoke the Lambda.
 
-## Steps
+## 2. Connect the Lambda to Lex V2
 
-### 1. Deploy
+In the Amazon Lex V2 console:
 
-    cp samconfig.toml.example samconfig.toml
-    # edit region + LexBotAliasArn
-    sam validate --lint && sam build && sam deploy --guided
+1. Open the `BookHotel` intent.
+2. Configure the deployed Lambda as the **Dialog code hook**.
+3. Configure the same Lambda as the **Fulfillment code hook**.
+4. Build the bot and ensure the alias uses the updated bot version.
 
-Evidence: sam deploy success output.
+Capture evidence showing the configured hooks.
 
-### 2. Wire to Lex
+## 3. Test a simulated booking
 
-Lex console → BookHotel intent → Fulfillment → attach hotel-booking-fulfilment
-to both Dialog and Fulfillment hooks → Build bot.
-Evidence: screenshots/lambda/01-lex-fulfillment.png.
+Use the Lex test console and provide all four slots:
 
-### 3. Test booking
+- Location
+- Check-in date (use a valid future date)
+- Number of nights
+- Room type
 
-Lex chat, future date, complete all four slots.
-Confirmation ends with "Reference: <hex>".
-Evidence: screenshots/lambda/02-lex-chat.png.
+Confirm that the bot returns an estimate and a reference. The response must make clear that **no real hotel reservation was made**.
 
-### 4. CloudWatch
+Capture the completed conversation.
 
-    aws logs tail "/aws/lambda/hotel-booking-fulfilment" --since 10m
+## 4. Verify CloudWatch logs
 
-Expect "Persisted booking <id>" and "Fulfilled BookHotel: room=...".
-Evidence: screenshots/lambda/03-cloudwatch.png.
+After a successful test, inspect the Lambda log group:
 
-### 5. DynamoDB
+```bash
+aws logs tail "/aws/lambda/hotel-booking-fulfilment" --since 10m
+```
 
-    aws dynamodb scan --table-name "$(aws cloudformation describe-stacks \
-      --stack-name hotel-booking-chatbot \
-      --query 'Stacks[0].Outputs[?OutputKey==`BookingsTableName`].OutputValue' \
-      --output text)" --max-items 3
+Check for the persistence and fulfillment log entries. Confirm that free-text location values are not written to logs.
 
-Confirm status = SIMULATED, expiresAt ~30 days out.
-Evidence: screenshots/lambda/04-dynamodb.png.
+Capture the relevant log output, taking care not to expose account IDs or other sensitive information.
 
-### 6. Update README
+## 5. Verify the DynamoDB record
 
-In ### Verification status, replace "Not yet deployed" with
-"Deployed and verified in <region> on <date>" + evidence paths.
+Retrieve the table name from the CloudFormation stack outputs:
 
-Do NOT change `| Real hotel reservation | Not implemented |`.
+```bash
+TABLE_NAME=$(aws cloudformation describe-stacks \
+  --stack-name hotel-booking-chatbot \
+  --query "Stacks[0].Outputs[?OutputKey=='BookingsTableName'].OutputValue" \
+  --output text)
 
-    git add screenshots/lambda/ README.md
-    git commit -m "docs: verified deployment in <region>"
-    git push
+echo "$TABLE_NAME"
+aws dynamodb scan --table-name "$TABLE_NAME" --max-items 3
+```
 
-### 7. Cleanup
+Verify that a record was written and that:
 
-    sam delete --stack-name hotel-booking-chatbot
+- `status` is `SIMULATED`.
+- The booking reference matches the chatbot response.
+- `expiresAt` is set for the configured 30-day TTL period.
+
+Capture the result without exposing unnecessary personal data.
+
+## 6. Add deployment evidence
+
+Add verified screenshots under `screenshots/lambda/`, for example:
+
+- `01-lex-fulfillment.png` — Lex hook configuration.
+- `02-lex-chat.png` — successful simulated estimate.
+- `03-cloudwatch.png` — relevant Lambda logs.
+- `04-dynamodb.png` — persisted simulated record.
+
+Only include screenshots from a deployment you actually tested.
+
+Then update the README's **Verification status** section with the AWS region, verification date, and links to the evidence.
+
+Keep the project limitations accurate: this workflow stores a **simulated estimate record**; it does not reserve a real hotel room or process a payment.
+
+## 7. Clean up AWS resources
+
+When you have finished testing and no longer need the deployment:
+
+```bash
+sam delete --stack-name hotel-booking-chatbot
+```
+
+Confirm in the AWS console that the stack and its resources have been removed. Check the account for any separately created Lex resources, which may not be part of this SAM stack.
