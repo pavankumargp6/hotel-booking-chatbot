@@ -22,3 +22,26 @@ desktop.ini
 .env.*
 !.env.example
 .venv/
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+
+# Local virtualenv (already added, but keep idempotent)
+.venv/
+venv/
