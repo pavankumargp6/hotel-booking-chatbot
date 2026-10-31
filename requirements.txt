@@ -1,4 +1,4 @@
 # Runtime dependencies.
 # The AWS Lambda Python 3.12 runtime provides boto3 and botocore.
-# This project currently makes no direct AWS API calls from the handler,
-# so there are no third-party runtime dependencies.
+# src/storage.py imports boto3 to write to DynamoDB, but the Lambda
+# runtime supplies it, so no pip install is needed inside the function.
