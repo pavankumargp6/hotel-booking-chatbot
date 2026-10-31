@@ -35,6 +35,30 @@ returns a formatted summary to the user.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    User([Chat User])
+
+    subgraph AWS["AWS Cloud"]
+        direction TB
+        Bot["Amazon Lex V2<br/>HotelBookingBot<br/>BookHotel intent - 4 slots"]
+        Handler["AWS Lambda - python3.12 - 128 MB<br/>hotel-booking-fulfilment<br/>DialogCodeHook + FulfillmentCodeHook"]
+        Table["Amazon DynamoDB<br/>bookings table<br/>PAY_PER_REQUEST - TTL 30d"]
+        Logs["Amazon CloudWatch<br/>Logs &amp; Metrics"]
+        IAM["IAM Role<br/>dynamodb:PutItem<br/>scoped to table ARN"]
+        Env["Env Vars<br/>PRICING_CONFIG<br/>BOOKINGS_TABLE"]
+    end
+
+    User -->|chat| Bot
+    Bot -->|DialogCodeHook| Handler
+    Bot -->|FulfillmentCodeHook| Handler
+    Handler -->|"PutItem<br/>attribute_not_exists"| Table
+    Handler -->|structured logs| Logs
+    IAM -.->|grants| Handler
+    Env -.->|read| Handler
+    Handler -->|Lex V2 response| Bot
+```
+
 The Lambda function is **pure Python**. Its only AWS SDK call is a
 scoped `dynamodb:PutItem`; it does not call any other AWS service at
 runtime.
