@@ -1,172 +1,176 @@
-# 🏨 Hotel Booking Chatbot using Amazon Lex
+# Hotel Booking Chatbot — Amazon Lex V2 + AWS Lambda
 
-![AWS Lex](https://img.shields.io/badge/Amazon%20Lex-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
-![NLP](https://img.shields.io/badge/NLP-Powered-blue?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+A conversational hotel booking chatbot built on **Amazon Lex V2** with
+**AWS Lambda fulfillment** written in Python. The bot collects four slots
+(location, check-in date, nights, room type), validates them, calculates
+an **estimated total price** using a configurable pricing table, and
+returns a formatted summary to the user.
 
----
-
-## 📌 Project Overview
-
-This project demonstrates the development of a **Hotel Booking Chatbot** using **Amazon Lex**, a service by Amazon Web Services (AWS) for building conversational interfaces.
-
-The chatbot interacts with users to collect booking details such as location, check-in date, number of nights, and room type, and provides a confirmation message.
-
----
-
-## 🎯 Objectives
-
-- Build a conversational chatbot for hotel booking
-- Understand intent and slot handling in Amazon Lex
-- Implement a cost-efficient serverless solution
-- Provide a user-friendly booking experience
+> **Important:** This project demonstrates a conversational booking
+> workflow. It calculates a **simulated estimate** and returns a summary
+> message. It does **not** make real hotel reservations, process payments,
+> or hold room inventory.
 
 ---
 
-## 🛠️ Technologies Used
+## Project status
 
-| Technology | Purpose |
+| Capability | Status |
 |---|---|
-| Amazon Lex (V2) | Chatbot / NLP engine |
-| AWS Management Console | Bot configuration & testing |
-| Natural Language Processing | Intent & slot recognition |
+| Lex V2 `BookHotel` intent and slot design | Implemented |
+| Natural-language slot collection | Implemented |
+| Lambda fulfillment code | Implemented (`src/`) |
+| Dynamic pricing from configuration | Implemented |
+| Application-level slot validation | Implemented |
+| Unit + integration-style tests | Implemented (113 tests) |
+| SAM template for deployment | Implemented (`template.yaml`) |
+| GitHub Actions CI | Planned |
+| Real hotel reservation / inventory | Not implemented — simulated only |
+| Payment processing | Not implemented |
+| Database persistence | Not implemented |
+| Web widget | Not implemented |
 
 ---
 
-## ⚙️ Features
+## Architecture
 
-- 🗣️ Natural language interaction
-- 📍 Captures user location
-- 📅 Handles check-in date
-- 🌙 Collects number of nights
-- 🛏️ Supports multiple room types (Classic, Deluxe, Duplex, Suite)
-- ✅ Booking confirmation summary
+The Lambda function is **pure Python** — it does not call any other AWS
+service at runtime, and does not persist any data.
 
----
+Flow:
 
-## 🧠 Bot Design
-
-### Intent
-
-- **BookHotel**
-
-### Slots
-
-| Slot Name   | Type          | Description            |
-|-------------|---------------|------------------------|
-| Location    | AMAZON.City   | City for hotel booking |
-| CheckInDate | AMAZON.Date   | Check-in date          |
-| Nights      | AMAZON.Number | Number of nights       |
-| RoomType    | Custom        | Type of room           |
-
-### Sample Utterances
-
-- `I want to book a hotel`
-- `Book a room in {Location}`
-- `I need a hotel for {Nights} nights`
+1. User sends an utterance to `HotelBookingBot` (Amazon Lex V2).
+2. Lex invokes the Lambda twice per booking:
+   - `DialogCodeHook` — validates slots as they are filled.
+   - `FulfillmentCodeHook` — final validation + price estimate.
+3. The Lambda reads `PRICING_CONFIG` once per invocation and returns a
+   structured Lex V2 response. Logs go to CloudWatch.
 
 ---
 
-## 💬 Sample Conversation
+## Design decisions
 
-```
-User: Book a hotel
-Bot:  Which city do you want to stay in?
-User: Bangalore
-Bot:  What is your check-in date?
-User: April 1
-Bot:  How many nights will you stay?
-User: 2
-Bot:  Which room type? Classic, Deluxe, Duplex, or Suite?
-User: Deluxe
-```
+- **Two-phase validation:** `DialogCodeHook` validates only filled
+  slots, so Lex can still prompt for missing ones.
+  `FulfillmentCodeHook` re-validates everything before pricing.
+- **Decimal money math:** `Decimal` + `ROUND_HALF_UP` + quantize to
+  `0.01`. No floats anywhere.
+- **Config externalized:** all prices in `PRICING_CONFIG`, no magic
+  numbers in code.
+- **No AWS SDK:** handler uses only the Python standard library.
+- **Failure isolation:** unhandled exceptions become a Lex `Close`
+  with `Failed` state and a generic user message; the traceback goes
+  to CloudWatch. Internal detail never reaches the user.
+- **Simulated only:** confirmation message explicitly says no real
+  reservation was made.
 
-**Bot Response:**
+## Known limitations
 
-```
-✅ Your booking is confirmed!
+- No persistence — sessions are held only by Lex.
+- No availability check — any room/date returns an estimate.
+- No payment.
+- `en_US` only.
+- Only the `BookHotel` intent is handled by this Lambda.
 
-📍 Location    : Bangalore
-📅 Check-in    : 2026-04-01
-🌙 Nights      : 2
-🛏️ Room Type   : Deluxe
-
-💰 Price per night:
-   Classic  → ₹2,000
-   Deluxe   → ₹3,000
-   Duplex   → ₹5,000
-   Suite    → ₹7,000
-
-🎉 Thank you! Have a great stay!
-```
 
 ---
 
-## 📸 Screenshots
+## Repository layout
 
-| | |
+| Path | Purpose |
 |---|---|
-| ![Screenshot 1](screenshots/major%20ss1.png) | ![Screenshot 2](screenshots/major%20ss2.png) |
-| ![Screenshot 3](screenshots/major%20ss3.png) | ![Screenshot 4](screenshots/major%20ss4.png) |
+| `src/` | Lambda handler and helper modules |
+| `tests/` | pytest suite + `events/` JSON fixtures |
+| `demo/` | original demo video (unchanged) |
+| `screenshots/` | original screenshots (unchanged) |
+| `docs/` | architecture + Lex config docs |
+| `template.yaml` | AWS SAM template |
+| `samconfig.toml.example` | SAM config example |
+| `Makefile`, `pyproject.toml` | local dev tooling |
 
 ---
 
-## 📹 Demo Video
+## Pricing configuration
 
-> See `demo/20260330_002246.mp4` in this repository for a full walkthrough.
+Prices live in the `PRICING_CONFIG` environment variable (JSON).
 
----
+| Room | Display name | Price / night (INR) |
+|---|---|---|
+| `classic` | Classic | 2000 |
+| `deluxe` | Deluxe | 3000 |
+| `duplex` | Duplex | 5000 |
+| `suite` | Suite | 7000 |
 
-## 🚀 Implementation Steps
+Defaults: `currency=INR`, `maxNights=30`, `taxRatePercent=0`.
 
-1. Created AWS account and accessed Amazon Lex
-2. Built a bot named `HotelBookingBot`
-3. Created intent `BookHotel`
-4. Defined slots and prompts
-5. Added sample utterances
-6. Configured fulfillment with simple response (no Lambda)
-7. Built and tested the chatbot
+Invalid JSON raises `ValueError`; the handler catches it and returns a
+generic failure message, logging the traceback to CloudWatch.
 
----
-
-## 💰 Cost Optimization
-
-- Used **AWS Free Tier** to keep costs at zero
-- Avoided AWS Lambda to prevent additional charges
-- Limited usage to testing and demonstration purposes
+None of the above is secret. Future secrets belong in AWS Secrets
+Manager or SSM Parameter Store — never in `PRICING_CONFIG`.
 
 ---
 
-## ⚠️ Challenges Faced
+## Local testing
 
-- Understanding slot type creation in Lex V2
-- Fixing slot name mismatches
-- Resolving fulfillment and build errors
+Run the full suite (113 tests) and linter:
 
----
+    python3 -m venv .venv
+    source .venv/bin/activate
+    make install
+    make test
+    make lint
 
-## 📈 Future Enhancements
+Run handler tests verbosely:
 
-- [ ] Integrate AWS Lambda for dynamic pricing
-- [ ] Add payment gateway support
-- [ ] Store bookings in a database (e.g., DynamoDB)
-- [ ] Improve conversation flow with validations
-- [ ] Deploy as a web widget
+    PYTHONPATH=src pytest tests/test_lambda_handler.py -v
 
----
-
-## 🔗 Author
-
-**Pavan Kumar G P**
+Invoke the handler locally against a fixture (see smoke example in
+`tests/test_lambda_handler.py::test_fixture_fulfillment_valid_returns_fulfilled_estimate`).
 
 ---
 
-## 📄 License
+## Deploying
 
-This project is licensed under the [MIT License](LICENSE).
+Prerequisites:
+
+- AWS SAM CLI installed
+- AWS credentials with IAM, Lambda, and Lambda-permission create access
+- A Lex V2 bot with a `BookHotel` intent already exists
+  (see `docs/lex-configuration.md`)
+
+Steps:
+
+    cp samconfig.toml.example samconfig.toml
+    # edit samconfig.toml: set region and LexBotAliasArn
+    sam validate --lint
+    sam build
+    sam deploy --guided
+
+Then associate the deployed function with the `BookHotel` intent in the
+Lex V2 console as both the Dialog code hook and the Fulfillment code
+hook.
+
+Cost: Lambda 128 MB / ~10 ms per call is well within free tier. Lex V2
+charges depend on text vs. speech usage. No pay-per-hour resources.
+
+Cleanup:
+
+    sam delete --stack-name hotel-booking-chatbot
 
 ---
 
-## 📢 Conclusion
+## Screenshots and demo
 
-This project showcases how **Amazon Lex** can be used to build a scalable and interactive chatbot for real-world applications like hotel booking, while maintaining a cost-efficient, serverless architecture.
+`demo/` and `screenshots/` contain the **original** demo video and
+screenshots of the earlier Lex-only implementation (static fulfillment
+response, no Lambda).
+
+The new Lambda path is implemented and tested locally, but its runtime
+appearance may differ. No new screenshots exist yet for the Lambda path.
+If you deploy and verify it in your account, add new screenshots under
+`screenshots/lambda/` rather than overwriting the originals.
+
+## License
+
+See [LICENSE](LICENSE).

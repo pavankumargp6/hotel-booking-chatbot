@@ -1,0 +1,29 @@
+# Example SAM CLI configuration.
+#
+# Copy to samconfig.toml and edit for your account:
+#   cp samconfig.toml.example samconfig.toml
+#
+# samconfig.toml itself is git-ignored on purpose: it contains
+# account-specific values (region, stack name, ARNs) that vary between
+# developers and environments.
+#
+# Then deploy with:
+#   sam deploy --guided
+# or:
+#   sam deploy
+
+version = 0.1
+
+[default.global.parameters]
+stack_name = "hotel-booking-chatbot"
+region = "us-east-1"
+resolve_s3 = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+fail_on_empty_changeset = false
+
+# Replace with the ARN of your existing Lex V2 bot alias.
+# Format: arn:aws:lex:<region>:<account>:bot-alias/<botId>/<aliasId>
+parameter_overrides = "LexBotAliasArn=\"arn:aws:lex:us-east-1:000000000000:bot-alias/REPLACE_ME/REPLACE_ME\""

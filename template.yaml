@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Hotel Booking Chatbot - Amazon Lex V2 fulfillment Lambda.
+  This template creates ONLY the Lambda function and the Lex invoke
+  permission. The Lex bot itself must exist separately (e.g. created
+  in the AWS console or exported from it).
+
+Parameters:
+  PricingConfig:
+    Type: String
+    Default: '{"currency":"INR","maxNights":30,"taxRatePercent":0,"rooms":{"classic":{"displayName":"Classic","pricePerNight":2000},"deluxe":{"displayName":"Deluxe","pricePerNight":3000},"duplex":{"displayName":"Duplex","pricePerNight":5000},"suite":{"displayName":"Suite","pricePerNight":7000}}}'
+    Description: >
+      JSON pricing configuration passed to the Lambda handler via the
+      PRICING_CONFIG environment variable.
+    NoEcho: false
+
+  LexBotAliasArn:
+    Type: String
+    Description: >
+      ARN of the Amazon Lex V2 bot alias that is allowed to invoke this
+      Lambda function. Format:
+      arn:aws:lex:<region>:<account>:bot-alias/<botId>/<aliasId>.
+      Required - the deploy will fail if this is empty.
+    MinLength: 1
+
+  FunctionMemoryMB:
+    Type: Number
+    Default: 128
+    MinValue: 128
+    MaxValue: 1024
+    Description: Lambda memory in MB.
+
+  FunctionTimeoutSeconds:
+    Type: Number
+    Default: 10
+    MinValue: 3
+    MaxValue: 29
+    Description: Lambda timeout in seconds (Lex V2 waits up to 30 s).
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+
+Resources:
+  HotelBookingFulfilmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hotel-booking-fulfilment
+      Description: Lex V2 fulfillment for the HotelBookingBot BookHotel intent.
+      CodeUri: src/
+      Handler: lambda_handler.lambda_handler
+      MemorySize: !Ref FunctionMemoryMB
+      Timeout: !Ref FunctionTimeoutSeconds
+      Environment:
+        Variables:
+          PRICING_CONFIG: !Ref PricingConfig
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Tags:
+        Project: hotel-booking-chatbot
+
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt HotelBookingFulfilmentFunction.Arn
+      Principal: lexv2.amazonaws.com
+      SourceArn: !Ref LexBotAliasArn
+
+Outputs:
+  FulfilmentFunctionArn:
+    Description: ARN to associate with the BookHotel intent in the Lex V2 console.
+    Value: !GetAtt HotelBookingFulfilmentFunction.Arn
+
+  FulfilmentFunctionName:
+    Description: Lambda function name (for CloudWatch logs and logs filter).
+    Value: !Ref HotelBookingFulfilmentFunction
+
+  LogGroupName:
+    Description: CloudWatch log group for the Lambda.
+    Value: !Sub "/aws/lambda/${HotelBookingFulfilmentFunction}"

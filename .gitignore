@@ -45,3 +45,4 @@ samconfig.toml
 # Local virtualenv (already added, but keep idempotent)
 .venv/
 venv/
+README.md.bak
