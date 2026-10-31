@@ -57,10 +57,36 @@ Resources:
       Environment:
         Variables:
           PRICING_CONFIG: !Ref PricingConfig
+          BOOKINGS_TABLE: !Ref HotelBookingsTable
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt HotelBookingsTable.Arn
       Tags:
         Project: hotel-booking-chatbot
+
+  HotelBookingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-bookings"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: bookingId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: bookingId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: Project
+          Value: hotel-booking-chatbot
 
   LexInvokePermission:
     Type: AWS::Lambda::Permission
@@ -82,3 +108,11 @@ Outputs:
   LogGroupName:
     Description: CloudWatch log group for the Lambda.
     Value: !Sub "/aws/lambda/${HotelBookingFulfilmentFunction}"
+
+  BookingsTableName:
+    Description: DynamoDB table name for booking records.
+    Value: !Ref HotelBookingsTable
+
+  BookingsTableArn:
+    Description: ARN of the DynamoDB bookings table.
+    Value: !GetAtt HotelBookingsTable.Arn
