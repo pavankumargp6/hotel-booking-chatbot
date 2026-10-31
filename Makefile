@@ -4,7 +4,7 @@ install:
 	pip install -r requirements.txt -r requirements-dev.txt ruff
 
 test:
-	PYTHONPATH=src pytest --cov=src --cov-report=term-missing --cov-fail-under=80
+	PYTHONPATH=src pytest --cov=src --cov-report=term-missing --cov-fail-under=90
 
 lint:
 	ruff check src tests
