@@ -1,0 +1,23 @@
+{
+  "sessionState": {
+    "intent": {
+      "name": "BookHotel",
+      "state": "ReadyForFulfillment",
+      "slots": {
+        "Location":   {"value": {"interpretedValue": "Bangalore"}, "shape": "Scalar"},
+        "CheckInDate":{"value": {"interpretedValue": "2099-04-01"},  "shape": "Scalar"},
+        "Nights":     {"value": {"interpretedValue": "2"},           "shape": "Scalar"},
+        "RoomType":   {"value": {"interpretedValue": "Deluxe"},      "shape": "Scalar"}
+      }
+    },
+    "sessionAttributes": {}
+  },
+  "invocationSource": "FulfillmentCodeHook",
+  "inputMode": "Text",
+  "bot": {
+    "name": "HotelBookingBot",
+    "aliasName": "TestBotAlias",
+    "version": "DRAFT",
+    "localeId": "en_US"
+  }
+}

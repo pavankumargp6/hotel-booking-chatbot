@@ -1,4 +1,6 @@
+import json
 import logging
+from pathlib import Path
 
 from lambda_handler import (
     GENERIC_ERROR_MESSAGE,
@@ -205,3 +207,35 @@ def test_load_pricing_error_returns_generic_failure(monkeypatch, caplog):
     assert any(
         "Unhandled error" in r.message for r in caplog.records
     )
+
+
+# ---- Integration-style: fixtures loaded from disk -------------------------
+
+
+
+EVENTS_DIR = Path(__file__).parent / "events"
+
+
+def _load_event(name):
+    return json.loads((EVENTS_DIR / name).read_text(encoding="utf-8"))
+
+
+def test_fixture_fulfillment_valid_returns_fulfilled_estimate():
+    response = lambda_handler(_load_event("fulfillment_valid.json"), None)
+
+    assert response["sessionState"]["dialogAction"]["type"] == "Close"
+    assert response["sessionState"]["intent"]["state"] == "Fulfilled"
+    content = response["messages"][0]["content"]
+    assert "INR 6,000.00" in content
+    assert "No real hotel reservation has been made." in content
+
+
+def test_fixture_dialog_invalid_date_elicits_checkin():
+    response = lambda_handler(_load_event("dialog_invalid_date.json"), None)
+
+    assert response["sessionState"]["dialogAction"]["type"] == "ElicitSlot"
+    assert (
+        response["sessionState"]["dialogAction"]["slotToElicit"]
+        == "CheckInDate"
+    )
+    assert "past" in response["messages"][0]["content"].lower()

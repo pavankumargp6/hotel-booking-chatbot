@@ -1,0 +1,21 @@
+{
+  "sessionState": {
+    "intent": {
+      "name": "BookHotel",
+      "state": "InProgress",
+      "slots": {
+        "Location":    {"value": {"interpretedValue": "Bangalore"}, "shape": "Scalar"},
+        "CheckInDate": {"value": {"interpretedValue": "2020-01-01"},  "shape": "Scalar"}
+      }
+    },
+    "sessionAttributes": {}
+  },
+  "invocationSource": "DialogCodeHook",
+  "inputMode": "Text",
+  "bot": {
+    "name": "HotelBookingBot",
+    "aliasName": "TestBotAlias",
+    "version": "DRAFT",
+    "localeId": "en_US"
+  }
+}
