@@ -14,8 +14,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - name: Tests + coverage
-        run: PYTHONPATH=src pytest --cov=src --cov-report=term-missing -q
+      - name: Tests + coverage (threshold 80%)
+        run: PYTHONPATH=src pytest --cov=src --cov-report=term-missing --cov-fail-under=80 -q
       - name: Lint
         run: ruff check src tests
 
@@ -27,8 +27,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pip-audit==2.7.3
-      - name: Audit dev dependencies (informational)
-        run: pip-audit -r requirements-dev.txt || true
+      - name: Audit dev dependencies
+        run: pip-audit -r requirements-dev.txt --desc on
 
   sam-validate:
     runs-on: ubuntu-latest

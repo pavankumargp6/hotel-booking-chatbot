@@ -13,6 +13,15 @@ addopts = "-ra"
 source = ["src"]
 branch = true
 
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"
