@@ -1,0 +1,21 @@
+[project]
+name = "hotel-booking-chatbot"
+version = "0.1.0"
+description = "Amazon Lex V2 + AWS Lambda hotel booking chatbot (simulated)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
