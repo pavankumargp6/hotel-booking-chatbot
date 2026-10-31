@@ -55,6 +55,34 @@ Flow:
 
 ---
 
+## Persistence
+
+Every successful fulfillment writes one immutable record to DynamoDB
+before returning a Lex response. Fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `bookingId` (PK) | S | sha256(sessionId\|location\|checkInDate\|nights\|room), 32 hex chars |
+| `sessionId` | S | Lex session ID |
+| `location` | S | Free-text from slot (PII-safe: not logged) |
+| `checkInDate` | S | ISO date `YYYY-MM-DD` |
+| `nights` | N | Integer 1..maxNights |
+| `roomType` | S | Lowercase room key |
+| `subtotal`, `tax`, `total` | S | Decimal-as-string to avoid float drift |
+| `currency` | S | e.g. `INR` |
+| `status` | S | Always `SIMULATED` |
+| `createdAt` | S | ISO timestamp (UTC) |
+| `expiresAt` | N | Unix epoch, TTL 30 days |
+
+**Idempotency.** Same session + same inputs => same `bookingId` =>
+`ConditionalCheckFailedException` on retry => no-op, no duplicate.
+**TTL.** `expiresAt` lets DynamoDB delete old records for free.
+**No GSIs.** Queries by date or room would need them; none are needed yet.
+
+See `docs/data-model.md` for the full schema and cost analysis.
+
+---
+
 ## Design decisions
 
 - **Two-phase validation:** `DialogCodeHook` validates only filled
@@ -158,8 +186,20 @@ Then associate the deployed function with the `BookHotel` intent in the
 Lex V2 console as both the Dialog code hook and the Fulfillment code
 hook.
 
-Cost: Lambda 128 MB / ~10 ms per call is well within free tier. Lex V2
-charges depend on text vs. speech usage. No pay-per-hour resources.
+### Verification status
+
+- `sam validate --lint` and `sam build` pass locally.
+- 122 tests pass; `ruff check src tests` is clean.
+- **Not yet deployed to AWS.** Deployment requires an AWS account and
+  a Lex V2 bot alias; run `sam deploy --guided` as described above to
+  provision the Lambda, DynamoDB table, and IAM permission, then wire
+  the function to the `BookHotel` intent in the Lex console.
+
+Cost: Lambda 128 MB / ~10 ms per call is well within free tier.
+DynamoDB on-demand with TTL is effectively $0 at demo traffic
+(25 WCU / 25 RCU free tier covers far more than this traffic produces).
+Lex V2 charges depend on text vs. speech usage. No pay-per-hour
+resources are created.
 
 Cleanup:
 
