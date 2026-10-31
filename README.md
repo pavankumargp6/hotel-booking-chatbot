@@ -22,8 +22,9 @@ returns a formatted summary to the user.
 | Lambda fulfillment code | Implemented (`src/`) |
 | Dynamic pricing from configuration | Implemented |
 | Application-level slot validation | Implemented |
-| Unit + integration-style tests | Implemented (113 tests) |
+| Unit + integration-style tests | Implemented (122 tests) |
 | SAM template for deployment | Implemented (`template.yaml`) |
+| DynamoDB persistence | Implemented (idempotent writes, TTL 30 days) |
 | GitHub Actions CI | Implemented (`.github/workflows/ci.yml`) |
 | Real hotel reservation / inventory | Not implemented — simulated only |
 | Payment processing | Not implemented |
@@ -34,8 +35,9 @@ returns a formatted summary to the user.
 
 ## Architecture
 
-The Lambda function is **pure Python** — it does not call any other AWS
-service at runtime, and does not persist any data.
+The Lambda function is **pure Python**. Its only AWS SDK call is a
+scoped `dynamodb:PutItem`; it does not call any other AWS service at
+runtime.
 
 Flow:
 
@@ -43,8 +45,13 @@ Flow:
 2. Lex invokes the Lambda twice per booking:
    - `DialogCodeHook` — validates slots as they are filled.
    - `FulfillmentCodeHook` — final validation + price estimate.
-3. The Lambda reads `PRICING_CONFIG` once per invocation and returns a
-   structured Lex V2 response. Logs go to CloudWatch.
+3. The Lambda reads `PRICING_CONFIG` once per invocation.
+4. On successful fulfillment it writes one record to DynamoDB
+   (idempotent via a sha256 `bookingId` and an
+   `attribute_not_exists(bookingId)` condition).
+5. It returns a structured Lex V2 response. Logs go to CloudWatch;
+   the `Location` value is stored in DDB but only its length is
+   logged, so free-text PII does not land in logs.
 
 ---
 
